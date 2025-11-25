@@ -1,0 +1,118 @@
+- step:
+    name: prepare_data
+    environment: aws-eu-west-1-g4dn-xlarge
+    image: ultralytics/yolov5
+    command:
+      - pip install valohai-utils
+      - python data-preprocess.py {parameters}
+    inputs:
+      - name: dataset
+        default: s3://valohai-demo-library-data/drift-detection/ships-aerial-images.zip
+    parameters:
+      - name: train_size
+        default: 15
+        type: integer
+        description: total train dataset size
+      - name: valid_size
+        default: 10
+        type: integer
+        description: total validation dataset size
+      - name: test_size
+        default: 10
+        type: integer
+        description: total test dataset size
+      - name: image_size
+        default: 768
+        type: integer
+
+- step:
+    name: train_model
+    environment: aws-eu-west-1-g4dn-xlarge
+    image: ultralytics/yolov5
+    command:
+      - pip install valohai-utils
+      - nohup python valohai_watch.py &
+      - python train.py {parameters}
+    inputs:
+      - name: train
+        default: dataset://demo-ships-aerial/dev_train
+      - name: test
+        default: dataset://demo-ships-aerial/dev_test
+      - name: valid
+        default: dataset://demo-ships-aerial/dev_valid
+    parameters:
+      - name: yolo_model_name
+        default: 'yolov8x.pt'
+        type: string
+      - name: epochs
+        default: 8
+        type: integer
+        description: total training epochs
+      - name: batch_size
+        default: 4
+        type: integer
+        description: total batch size
+      - name: image_size
+        default: 768
+        type: integer
+      - name: optimizer
+        default: "SGD"
+        type: string
+        description: optimizer
+      - name: seed
+        default: 42
+        type: integer
+      - name: project
+        default: /valohai/outputs/
+        type: string
+        description: save to project/name
+
+- step:
+    name: prediction
+    image: ultralytics/yolov5
+    environment: aws-eu-west-1-g4dn-xlarge
+    command:
+      - pip install valohai-utils
+      - python predict.py {parameters}
+    inputs:
+      - name: model
+        default: model://ship-detection/2
+      - name: data_yaml
+        default: datum://data_yaml
+      - name: valid
+        default: dataset://demo-ships-aerial/dev_valid
+      - name: test
+        default: dataset://demo-ships-aerial/dev_test
+
+
+- pipeline:
+    name: train-val-pipeline
+    nodes:
+      - name: preprocess
+        type: execution
+        step: prepare_data
+      - name: training
+        type: execution
+        step: train_model
+      - name: prediction
+        type: execution
+        step: prediction
+        override:
+          inputs:
+            - name: model
+    edges:
+      - [preprocess.parameter.image_size, training.parameter.image_size]
+      - [training.output.*best.pt, prediction.input.model]
+
+
+- step:
+    name: predict-seg
+    image: ultralytics/yolov5
+    environment: aws-eu-west-1-g4dn-xlarge
+    command:
+      - pip install valohai-utils pillow
+      - python predict-seg.py {parameters}
+    parameters:
+      - name: yolo_model_name
+        default: 'yolov8s-seg.pt'
+        type: string
