@@ -36,7 +36,6 @@ def save_val_plots_to_outputs():
 def write_sidecar(image_abs_path: str, metadata: dict):
     """
     Write sidecar metadata JSON next to an image:
-      <image_abs_path>.metadata.json
     """
     sidecar_path = image_abs_path + ".metadata.json"
     os.makedirs(os.path.dirname(sidecar_path), exist_ok=True)
@@ -54,7 +53,6 @@ def generate_custom_plots(model):
     For all three, write sidecar metadata with vhic_* fields so Valohai
     image comparison UI can group and compare them.
     """
-    MAX_SAVE = 4
 
     # Adjust these if your folder structure differs
     split_sources = {
@@ -82,8 +80,6 @@ def generate_custom_plots(model):
         )
 
         for i, r in enumerate(results):
-            if i >= MAX_SAVE:  # <--- ONE-LINE LIMIT
-                break
             orig = r.orig_img  # numpy array (H, W, 3), BGR
             img_path = r.path  # original image path as string
             img_name = os.path.basename(img_path)
@@ -104,7 +100,7 @@ def generate_custom_plots(model):
                 for (x1, y1, x2, y2) in boxes_xyxy:
                     cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0, 255), 2, lineType=cv2.LINE_8)
 
-                # --- Save bbox image as PNG ---
+            # --- Save bbox image as PNG ---
             bbox_png_name = f"{img_stem}.png"
             bbox_abs = bbox_output.path(bbox_png_name)
             cv2.imwrite(bbox_abs, canvas)
@@ -117,7 +113,6 @@ def generate_custom_plots(model):
             # ---------- Image comparison metadata via sidecars ----------
             # Relative paths from /valohai/outputs, which is what Valohai uses
             rel_orig = os.path.relpath(orig_abs, OUTPUT_ROOT)
-            rel_bbox = os.path.relpath(bbox_abs, OUTPUT_ROOT)
             rel_overlay = os.path.relpath(overlay_abs, OUTPUT_ROOT)
 
             # Group per split + image, so you see e.g. "test/GE_690_jpg.rf..."
@@ -128,37 +123,37 @@ def generate_custom_plots(model):
             truth_file = rel_overlay
 
             # Original
-            # write_sidecar(
-            #     orig_abs,
-            #     {
-            #         "vhic_group": group_name,
-            #         "vhic_base": base_file,
-            #         "vhic_truth": truth_file,
-            #         "vhic_name": f"{split_name} original",
-            #     },
-            # )
+            write_sidecar(
+                orig_abs,
+                {
+                    "vhic_group": group_name,
+                    "vhic_base": base_file,
+                    "vhic_truth": truth_file,
+                    "vhic_name": f"{split_name} original",
+                },
+            )
 
-            # # Overlay (predictions on original)
-            # write_sidecar(
-            #     overlay_abs,
-            #     {
-            #         "vhic_group": group_name,
-            #         "vhic_base": base_file,
-            #         "vhic_truth": truth_file,
-            #         "vhic_name": f"{split_name} overlay",
-            #     },
-            # )
+            # Overlay (predictions on original)
+            write_sidecar(
+                overlay_abs,
+                {
+                    "vhic_group": group_name,
+                    "vhic_base": base_file,
+                    "vhic_truth": truth_file,
+                    "vhic_name": f"{split_name} overlay",
+                },
+            )
 
             # Bbox-only visualization
-            # write_sidecar(
-            #     bbox_abs,
-            #     {
-            #         "vhic_group": group_name,
-            #         "vhic_base": base_file,
-            #         "vhic_truth": truth_file,
-            #         "vhic_name": f"{split_name} bbox-only",
-            #     },
-            # )
+            write_sidecar(
+                bbox_abs,
+                {
+                    "vhic_group": group_name,
+                    "vhic_base": base_file,
+                    "vhic_truth": truth_file,
+                    "vhic_name": f"{split_name} bbox-only",
+                },
+            )
 
         print(f"Custom plots for split '{split_name}' saved to:")
         print(" - originals:", orig_output)
@@ -183,10 +178,10 @@ def evaluate_yolo():
     print("map75:", metrics.box.map75)
     print("List map50-95 of each category:", metrics.box.maps)
 
-    # Copy Ultralytics validation plots (PR curves, confusion matrix, etc.) to outputs
+    # Ultralytics validation plots (PR curves, confusion matrix, etc.) saved outputs
     save_val_plots_to_outputs()
 
-    # === 2) Run custom prediction pass for both test + valid (+ metadata) ===
+    # Run custom prediction pass for both test + valid
     generate_custom_plots(model)
 
 

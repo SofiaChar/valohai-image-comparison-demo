@@ -23,7 +23,7 @@ def create_data_yaml():
     return save_path
 
 
-def save_model_alias(project_path):
+def save_model_alias():
     """
     YOLO saves the model weights to /valohai/outputs/train/weights,
     We want to save the metadata for the best.pt to create new version of Valohai Model
@@ -32,17 +32,9 @@ def save_model_alias(project_path):
             "valohai.model-versions": ["model://ship-detection/"],  # creates new version of the model
     }
 
-    # After saving model file, create metadata
-    # metadata = {
-    #     "model.pkl": {
-    #         "valohai.model-versions": ["model://flower/"],
-    #     }
-    # }
     metadata_path = "/valohai/outputs/train/weights/best.pt.metadata.json"
     with open(metadata_path, "w") as f:
         json.dump(metadata, f)
-    # with open('/valohai/outputs/model.pkl.metadata.json', 'w') as f:
-
 
 def train_yolo(yolo_name, data_yaml, image_size, epochs, seed, batch_size, project):
     model = YOLO(yolo_name)

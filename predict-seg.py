@@ -1,5 +1,4 @@
 import os
-import cv2
 from pathlib import Path
 from io import BytesIO
 
@@ -8,8 +7,6 @@ import requests
 from PIL import Image, ImageDraw
 from ultralytics import YOLO
 import valohai
-
-# ---------------- CONFIG ----------------
 
 MODEL_PATH = valohai.parameters('yolo_model_name').value
 OUTPUT_DIR = "/valohai/outputs/"
@@ -22,9 +19,6 @@ IMAGE_URLS = [
 
 CONF_THRES = 0.25
 
-
-#
-# ---------------- HELPERS ----------------
 
 def download_image(url: str) -> Image.Image:
     print(f"Downloading: {url}")
@@ -45,8 +39,6 @@ def create_blank_rgba(size):
     return Image.new("RGBA", (w, h), (0, 0, 0, 0))
 
 
-# ---------------- MAIN LOGIC ----------------
-
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     model = YOLO(MODEL_PATH)
@@ -61,16 +53,16 @@ def main():
         base_name = f"img_{idx}"
         w, h = img.size
 
-        # ---------- ORIGINAL ----------
+        # Save originals
         orig_path = os.path.join(OUTPUT_DIR, f"{base_name}_orig.png")
         save_image(img, orig_path)
         print(f"[{idx}] Saved original -> {orig_path}")
 
-        # ---------- RUN SEGMENTATION ----------
+        # Run predictions
         print(f"[{idx}] Running model...")
         result = model(np.array(img), conf=CONF_THRES)[0]
 
-        # ---------- 1) BOXES-ONLY IMAGE (RGBA) ----------
+        # Save masks w bboxes
         boxes_canvas = create_blank_rgba(img.size)
         draw = ImageDraw.Draw(boxes_canvas)
 
@@ -97,20 +89,19 @@ def main():
         save_image(boxes_canvas, box_path)
         print(f"[{idx}] Saved boxes (RGBA) -> {box_path}")
 
-        # ---------- 2) SEGMENTATION MASK (RGBA) ----------
-        # *** THIS BLOCK IS EXACTLY YOUR WORKING VERSION, UNCHANGED ***
+        # Save segmentation masks
         mask_canvas = np.zeros((h, w, 4), dtype=np.uint8)  # transparent
 
         if result.masks is not None:
-            masks = result.masks.data.cpu().numpy()   # (N, Hm, Wm)
+            masks = result.masks.data.cpu().numpy()  # (N, Hm, Wm)
             num_masks = masks.shape[0]
 
             colors = [
-                (255, 0, 255),   # magenta
-                (0, 255, 255),   # cyan
-                (255, 255, 0),   # yellow
-                (0, 255, 0),     # green
-                (255, 128, 0),   # orange
+                (255, 0, 255),  # magenta
+                (0, 255, 255),  # cyan
+                (255, 255, 0),  # yellow
+                (0, 255, 0),  # green
+                (255, 128, 0),  # orange
             ]
 
             for i, m in enumerate(masks):
